@@ -9,7 +9,10 @@ async function main() {
         console.log("too many arguments provided")
         process.exit(1)
     }
-    const url = process.argv[2]
-    await crawlPage(url)
+    const baseURL = process.argv[2]
+    const pages = await crawlPage(baseURL, baseURL, {})
+    for (const page of Object.entries(pages)) {
+        console.log(page)
+    }
 }
 main()

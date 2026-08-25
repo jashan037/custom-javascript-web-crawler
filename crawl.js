@@ -1,10 +1,45 @@
-const { JSDOM } = require("jsdom")
+const { JSDOM,VirtualConsole } = require("jsdom")
 
-async function crawlPage(currentURL) {
-    console.log(`actively crawling: ${currentURL}`)
-    const resp = await fetch(currentURL)
-    let htmlBody = await resp.text()
-    console.log(urlsFromHTML(htmlBody, currentURL))
+async function crawlPage(baseURL, currentURL, pages) {
+    const baseURLObj = new URL(baseURL)
+    const currentURLObj = new URL(currentURL)
+    if (baseURLObj.hostname !== currentURLObj.hostname)
+        return pages
+
+    const normalizedCurrentURL = normalizeURL(currentURL)
+
+    if (pages[normalizedCurrentURL] > 0) {
+        pages[normalizedCurrentURL]++
+        return pages
+    }
+    pages[normalizedCurrentURL] = 1
+
+    try {
+        const resp = await fetch(currentURL)
+
+        if (resp.status > 399) {
+            console.log(`error in fetch with status code ${resp.status} on page ${currentURL}`)
+            return pages
+        }
+
+        const contentType = resp.headers.get('content-type')
+        if (!contentType || !contentType.includes('text/html')) {
+            console.log(`non html response, content type: ${contentType}, on page: ${currentURL}`)
+            return pages
+        }
+        const htmlBody = await resp.text()
+
+        console.log(`actively crawling:${currentURL}`)
+
+        const nextURLs = urlsFromHTML(htmlBody, baseURL)
+
+        for (const nextURL of nextURLs) {
+            pages = await crawlPage(baseURL,nextURL,pages)
+        }
+    } catch (err) {
+        console.log(`error ${err.message} on page ${currentURL}`)
+    }
+    return pages
 }
 
 function normalizeURL(url) {
@@ -17,29 +52,25 @@ function normalizeURL(url) {
 
 
 function urlsFromHTML(htmlBody, baseURL) {
-    const urls = []
-    const dom = new JSDOM(htmlBody)
+    let urls = []
+    const virtualConsole = new VirtualConsole()
+    const dom = new JSDOM(htmlBody, {
+        virtualConsole
+    })
 
     const linkElements = dom.window.document.querySelectorAll('a')
 
     for (const elem of linkElements) {
         let href = elem.getAttribute('href')
-        if (href.startsWith('/')) {
-            href = `${baseURL}${href}`
-        }
         try {
-            let test = new URL(href)
-        } catch (err) { 
+            href = new URL(href,baseURL)
+        } catch (err) {
             continue;
         }
-        urls.push(href)
+        urls.push(href.href)
     }
-
     return urls
 }
-
-
-
 
 
 
