@@ -4,7 +4,7 @@
   "description": "",
   "main": "crawl.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest report.test.js"
   },
   "keywords": [],
   "author": "",
